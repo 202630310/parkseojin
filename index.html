@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OO중학교 근처 맛집 탐방</title>
+    <style>
+        /* 기본 스타일 초기화 */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Pretendard', '맑은 고딕', sans-serif;
+        }
+
+        body {
+            background-color: #f8f9fa;
+            color: #333;
+        }
+
+        /* 헤더 스타일 */
+        header {
+            background-color: #ff6b6b;
+            color: white;
+            text-align: center;
+            padding: 2rem 1rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        header h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        /* 메인 컨테이너 */
+        .container {
+            max-width: 1000px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        /* 검색 및 필터 영역 */
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            align-items: center;
+        }
+
+        .search-bar {
+            width: 100%;
+            max-width: 500px;
+            padding: 0.8rem 1.2rem;
+            border: 2px solid #ddd;
+            border-radius: 25px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .search-bar:focus {
+            border-color: #ff6b6b;
+        }
+
+        .filter-buttons {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .btn-filter {
+            background-color: white;
+            border: 1px solid #ddd;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .btn-filter:hover, .btn-filter.active {
+            background-color: #ff6b6b;
+            color: white;
+            border-color: #ff6b6b;
+        }
+
+        /* 음식점 리스트 그리드 */
+        .restaurant-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        /* 음식점 카드 스타일 */
+        .card {
+            background-color: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            transition: transform 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card-img {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            background-color: #eee;
+        }
+
+        .card-content {
+            padding: 1.2rem;
+        }
+
+        .card-tag {
+            display: inline-block;
+            background-color: #ffe3e3;
+            color: #ff6b6b;
+            font-size: 0.8rem;
+            font-weight: bold;
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+        }
+
+        .card-title {
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .card-info {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 0.3rem;
+        }
+
+        /* 푸터 */
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: #888;
+            font-size: 0.85rem;
+            border-top: 1px solid #ddd;
+            margin-top: 3rem;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🏫 OO중학교 근처 맛집 지도</h1>
+        <p>우리 학교 주변 맛있는 식당과 간식 집을 찾아보세요!</p>
+    </header>
+
+    <div class="container">
+        <!-- 검색 및 카테고리 필터 -->
+        <div class="controls">
+            <input type="text" id="searchInput" class="search-bar" placeholder="식당 이름이나 메뉴를 검색하세요... (예: 떡볶이)">
+            
+            <div class="filter-buttons">
+                <button class="btn-filter active" onclick="filterCategory('전체')">전체</button>
+                <button class="btn-filter" onclick="filterCategory('분식')">분식</button>
+                <button class="btn-filter" onclick="filterCategory('한식')">한식</button>
+                <button class="btn-filter" onclick="filterCategory('패스트푸드')">패스트푸드</button>
+                <button class="btn-filter" onclick="filterCategory('카페/디저트')">카페/디저트</button>
+            </div>
+        </div>
+
+        <!-- 음식점 카드 리스트 영역 -->
+        <div class="restaurant-grid" id="restaurantGrid">
+            <!-- 자바스크립트에 의해 카드 목록이 여기에 동적으로 추가됩니다 -->
+        </div>
+    </div>
+
+    <footer>
+        <p>© 2026 OO중학교 맛집 동아리 | 학생들을 위한 안내 웹사이트</p>
+    </footer>
+
+    <script>
+        // 음식점 데이터 (이 부분을 수정하여 원하는 식당 정보를 추가하세요!)
+        const restaurants = [
+            {
+                name: "학교 앞 떡볶이",
+                category: "분식",
+                menu: "모둠떡볶이, 튀김, 순대",
+                price: "3,500원 ~",
+                distance: "학교 정문에서 도보 2분",
+                image: "https://images.unsplash.com/photo-1627308595229-7830a5c91f9f?w=500&q=80"
+            },
+            {
+                name: "해피 버거",
+                category: "패스트푸드",
+                menu: "치즈버거 세트, 감자튀김",
+                price: "5,500원 ~",
+                distance: "학교 후문에서 도보 5분",
+                image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&q=80"
+            },
+            {
+                name: "대박 돈까스",
+                category: "한식",
+                menu: "왕돈까스, 치즈돈까스",
+                price: "8,000원 ~",
+                distance: "학교 정문에서 도보 7분",
+                image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80"
+            },
+            {
+                name: "달콤 아이스크림&카페",
+                category: "카페/디저트",
+                menu: "초코 와플, 딸기 라떼",
+                price: "3,000원 ~",
+                distance: "학교 정문에서 도보 3분",
+                image: "https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=500&q=80"
+            },
+            {
+                name: "소문난 김밥",
+                category: "분식",
+                menu: "참치김밥, 라면",
+                price: "3,500원 ~",
+                distance: "학교 정문에서 도보 1분",
+                image: "https://images.unsplash.com/photo-1563245372-f21724e3856d?w=500&q=80"
+            }
+        ];
+
+        // 카드 생성 함수
+        function renderCards(data) {
+            const grid = document.getElementById('restaurantGrid');
+            grid.innerHTML = '';
+
+            if (data.length === 0) {
+                grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #888;">검색 결과가 없습니다.</p>';
+                return;
+            }
+
+            data.forEach(item => {
+                const cardHtml = `
+                    <div class="card">
+                        <img src="${item.image}" alt="${item.name}" class="card-img">
+                        <div class="card-content">
+                            <span class="card-tag">${item.category}</span>
+                            <h3 class="card-title">${item.name}</h3>
+                            <p class="card-info"><strong>대표 메뉴:</strong> ${item.menu}</p>
+                            <p class="card-info"><strong>가격대:</strong> ${item.price}</p>
+                            <p class="card-info"><strong>위치:</strong> ${item.distance}</p>
+                        </div>
+                    </div>
+                `;
+                grid.innerHTML += cardHtml;
+            });
+        }
+
+        // 카테고리 필터링 기능
+        let currentCategory = '전체';
+        function filterCategory(category) {
+            currentCategory = category;
+            
+            // 버튼 활성화 스타일 변경
+            const buttons = document.querySelectorAll('.btn-filter');
+            buttons.forEach(btn => {
+                if (btn.innerText === category) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+
+            applyFilter();
+        }
+
+        // 검색어 필터링 기능
+        document.getElementById('searchInput').addEventListener('input', applyFilter);
+
+        // 검색 + 카테고리 적용 함수
+        function applyFilter() {
+            const keyword = document.getElementById('searchInput').value.toLowerCase();
+            
+            const filtered = restaurants.filter(item => {
+                const matchCategory = (currentCategory === '전체') || (item.category === currentCategory);
+                const matchKeyword = item.name.toLowerCase().includes(keyword) || item.menu.toLowerCase().includes(keyword);
+                return matchCategory && matchKeyword;
+            });
+
+            renderCards(filtered);
+        }
+
+        // 초기 화면 로딩 시 전체 리스트 출력
+        renderCards(restaurants);
+    </script>
+</body>
+</html>
