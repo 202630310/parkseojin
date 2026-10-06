@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="ko" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>캠퍼스 푸드로그 (Campus Foodlog) | 대학별 1km 맛집 정밀 가이드</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            200: '#c7d2fe',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            900: '#312e81',
+                        },
+                        surface: {
+                            light: '#f8fafc',
+                            card: '#ffffff',
+                            border: '#f1f5f9'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', '"Pretendard"', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'glass': '0 8px 32px 0 rgba(31, 38, 135, 0.07)',
+                        'subtle': '0 2px 10px rgba(0, 0, 0, 0.03), 0 10px 25px -5px rgba(0, 0, 0, 0.05)',
+                        'float': '0 20px 35px -10px rgba(79, 70, 229, 0.15)',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- FontAwesome & Fonts -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+
+    <!-- Leaflet JS & CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', 'Pretendard', -apple-system, sans-serif;
+            letter-spacing: -0.011em;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Leaflet Custom Marker & Popup Styles */
+        .leaflet-popup-content-wrapper {
+            border-radius: 18px;
+            padding: 4px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+        }
+        .leaflet-popup-content {
+            margin: 10px 14px;
+            font-family: 'Pretendard', sans-serif;
+        }
+
+        /* Marker Styles */
+        .custom-univ-marker {
+            background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+            border: 3px solid #ffffff;
+            border-radius: 999px;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 8px 20px rgba(79, 70, 229, 0.4);
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .custom-univ-marker:hover {
+            transform: scale(1.15);
+        }
+
+        .custom-rest-marker {
+            background: #ffffff;
+            border: 2px solid #e2e8f0;
+            border-radius: 16px;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .custom-rest-marker.active {
+            background: #4f46e5;
+            color: white;
+            border-color: #ffffff;
+            transform: scale(1.25);
+            box-shadow: 0 8px 20px rgba(79, 70, 229, 0.35);
+            z-index: 1000 !important;
+        }
+        .custom-rest-marker.fav {
+            border-color: #f59e0b;
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+        .dark ::-webkit-scrollbar-thumb { background: #334155; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .glass-header {
+            background: rgba(255, 255, 255, 0.82);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+        }
+        .dark .glass-header {
+            background: rgba(15, 23, 42, 0.85);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 h-screen flex flex-col overflow-hidden antialiased">
+
+    <!-- Top Modern Navigation Bar -->
+    <header class="glass-header border-b border-slate-200/80 dark:border-slate-800 px-4 sm:px-6 py-3 flex items-center justify-between z-30 flex-shrink-0 gap-3">
+        
+        <!-- Logo & Brand Title -->
+        <div class="flex items-center gap-3 flex-shrink-0">
+            <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-brand-600 via-indigo-500 to-violet-500 flex items-center justify-center text-white shadow-md shadow-brand-500/20">
+                <i class="fa-solid fa-compass text-lg"></i>
+            </div>
+            <div>
+                <h1 class="font-extrabold text-base sm:text-lg tracking-tight text-slate-900 dark:text-white leading-none flex items-center gap-2">
+                    캠퍼스푸드로그
+                    <span class="text-[10px] font-bold bg-brand-50 dark:bg-brand-950/80 text-brand-600 dark:text-brand-300 px-2 py-0.5 rounded-full border border-brand-200 dark:border-brand-800/50">1km LIVE</span>
+                </h1>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 font-medium hidden sm:block mt-0.5">전국 대학별 도보 정밀 맛집 & 스마트 길찾기</p>
+            </div>
+        </div>
+
+        <!-- Center University Search Engine -->
+        <div class="flex-1 max-w-sm sm:max-w-md mx-2 relative">
+            <div class="relative flex items-center">
+                <i class="fa-solid fa-magnifying-glass absolute left-3.5 text-slate-400 text-xs sm:text-sm pointer-events-none"></i>
+                <input type="text" id="univSearchInput" oninput="onUnivSearchInput(this.value)" onfocus="showUnivDropdown()" placeholder="학교명 또는 초성 검색 (예: 서울대, 연대, SNU, KAIST...)" class="w-full bg-slate-100/80 dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 text-slate-900 dark:text-slate-100 text-xs sm:text-sm rounded-2xl pl-9 sm:pl-10 pr-9 py-2.5 font-medium focus:ring-2 focus:ring-brand-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition shadow-inner">
+                <button onclick="clearUnivSearch()" id="clearUnivBtn" class="hidden absolute right-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs w-5 h-5 rounded-full flex items-center justify-center bg-slate-200 dark:bg-slate-800">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- University Search Suggestion Dropdown -->
+            <div id="univDropdown" class="hidden absolute left-0 right-0 top-full mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-float z-50 overflow-hidden max-h-[75vh] sm:max-h-[440px] flex flex-col transition-all">
+                <!-- Region Quick Chips -->
+                <div class="flex items-center gap-1.5 p-3 bg-slate-50/70 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 overflow-x-auto no-scrollbar text-xs flex-shrink-0" id="regionTabs">
+                    <!-- Injected by JS -->
+                </div>
+
+                <!-- Suggestions List -->
+                <div id="univListContainer" class="overflow-y-auto flex-1 p-2 space-y-1">
+                    <!-- Dynamic University Results -->
+                </div>
+
+                <div class="p-2.5 bg-slate-50/50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 dark:text-slate-500 text-center flex-shrink-0 font-medium">
+                    🔍 원하시는 대학이 보이지 않으면 약어나 영문명으로 검색하세요
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Controls (GPS & Theme Toggle) -->
+        <div class="flex items-center gap-2 flex-shrink-0">
+            <button onclick="getCurrentLocation()" class="bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-600 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:border-emerald-200 px-3 py-2 rounded-2xl text-xs font-semibold flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-location-arrow text-emerald-500 text-xs"></i>
+                <span class="hidden md:inline">내 GPS 위치</span>
+            </button>
+
+            <button onclick="toggleDarkMode()" class="w-9 h-9 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-700 transition border border-slate-200/80 dark:border-slate-700">
+                <i class="fa-solid fa-moon dark:hidden text-xs"></i>
+                <i class="fa-solid fa-sun hidden dark:block text-amber-400 text-xs"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Application Split Container -->
+    <div class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+
+        <!-- Sidebar Panel -->
+        <aside id="sidebar" class="w-full md:w-[420px] lg:w-[460px] bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 flex flex-col z-20 h-1/2 md:h-full order-2 md:order-1 shadow-lg">
+            
+            <!-- Filters Controls Block -->
+            <div class="p-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-3.5 flex-shrink-0">
+                
+                <!-- Selected Campus Banner Card -->
+                <div class="flex items-center justify-between bg-gradient-to-r from-brand-50 via-indigo-50/50 to-slate-50 dark:from-brand-950/40 dark:via-indigo-950/20 dark:to-slate-900 border border-brand-100 dark:border-brand-900/40 p-3 rounded-2xl">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="w-8 h-8 rounded-xl bg-brand-600 text-white flex items-center justify-center text-xs shadow-sm flex-shrink-0">
+                            <i class="fa-solid fa-graduation-cap"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-[10px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">탐색 캠퍼스 기준점</p>
+                            <p id="currentUnivBannerTitle" class="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-slate-100 truncate"></p>
+                        </div>
+                    </div>
+                    <span id="univBadgeCount" class="text-[11px] font-bold bg-brand-600 text-white px-2.5 py-1 rounded-full flex-shrink-0 shadow-sm"></span>
+                </div>
+
+                <!-- Search Input in Sidebar & Favorites Toggle -->
+                <div class="flex items-center gap-2">
+                    <div class="relative flex-1">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                        <input type="text" id="searchInput" placeholder="음식점명, 메뉴, 태그 검색..." oninput="applyFilters()" class="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl pl-8 pr-3 py-2 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500 transition font-medium">
+                    </div>
+                    <button id="favFilterBtn" onclick="toggleFavoriteFilter()" class="px-3 py-2 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:text-amber-600 transition">
+                        <i class="fa-solid fa-bookmark text-amber-500"></i>
+                        <span class="hidden sm:inline">즐겨찾기</span>
+                    </button>
+                </div>
+
+                <!-- Radius Segment Switcher -->
+                <div class="flex items-center justify-between gap-1 bg-slate-100/80 dark:bg-slate-800/60 p-1 rounded-2xl text-xs font-semibold">
+                    <span class="text-slate-400 pl-2 text-[11px]"><i class="fa-solid fa-ruler-horizontal mr-1"></i>반경:</span>
+                    <div class="flex gap-1">
+                        <button onclick="setRadius(0.3)" id="radius-0.3" class="px-3 py-1.5 rounded-xl transition">300m</button>
+                        <button onclick="setRadius(0.5)" id="radius-0.5" class="px-3 py-1.5 rounded-xl transition">500m</button>
+                        <button onclick="setRadius(1.0)" id="radius-1.0" class="px-3 py-1.5 rounded-xl font-bold bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-300 shadow-sm">1.0km</button>
+                    </div>
+                </div>
+
+                <!-- Category Chips Horizontal Scroll -->
+                <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar text-xs py-0.5" id="categoryContainer">
+                    <!-- Injected by JS -->
+                </div>
+
+                <!-- Sort & Filter Checkboxes -->
+                <div class="flex items-center justify-between text-xs pt-1">
+                    <div class="flex items-center gap-3">
+                        <label class="inline-flex items-center gap-1.5 text-slate-600 dark:text-slate-400 cursor-pointer font-medium">
+                            <input type="checkbox" id="chkSolo" onchange="applyFilters()" class="rounded border-slate-300 dark:border-slate-700 text-brand-600 focus:ring-brand-500">
+                            <span>#혼밥</span>
+                        </label>
+                        <label class="inline-flex items-center gap-1.5 text-slate-600 dark:text-slate-400 cursor-pointer font-medium">
+                            <input type="checkbox" id="chkLate" onchange="applyFilters()" class="rounded border-slate-300 dark:border-slate-700 text-brand-600 focus:ring-brand-500">
+                            <span>#야식</span>
+                        </label>
+                    </div>
+
+                    <!-- Sort Selection Dropdown -->
+                    <select id="sortSelect" onchange="applyFilters()" class="bg-transparent text-xs text-slate-600 dark:text-slate-300 font-semibold focus:outline-none cursor-pointer">
+                        <option value="dist">거리 가까운순</option>
+                        <option value="rating">평점 높은순</option>
+                        <option value="review">리뷰 많은순</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Restaurant Cards List Container -->
+            <div id="restaurantList" class="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50 dark:bg-slate-950/50">
+                <!-- Dynamic Cards Injected by JS -->
+            </div>
+        </aside>
+
+        <!-- Interactive Map Panel -->
+        <main class="flex-1 relative order-1 md:order-2 h-1/2 md:h-full">
+            <div id="map" class="w-full h-full z-0"></div>
+
+            <!-- Floating Quick Action Buttons on Map -->
+            <div class="absolute top-4 right-4 z-10 flex flex-col gap-2">
+                <button onclick="recenterMap()" class="bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:text-brand-600 w-11 h-11 rounded-2xl shadow-float border border-slate-200/80 dark:border-slate-800 flex items-center justify-center transition active:scale-95" title="기준 위치로 이동">
+                    <i class="fa-solid fa-crosshairs text-base"></i>
+                </button>
+            </div>
+
+            <!-- Radius Information Pill Overlay -->
+            <div class="absolute bottom-5 left-5 z-10 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 px-4 py-2.5 rounded-2xl shadow-float flex items-center gap-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200">
+                <span class="w-2.5 h-2.5 rounded-full bg-brand-500 animate-pulse"></span>
+                <span id="mapRadiusBanner">탐색 범위 <strong class="text-brand-600 dark:text-brand-400">1.0km</strong> 이내</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- Detailed Restaurant Modal View -->
+    <div idDetailModal id="detailModal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-6 hidden">
+        <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl relative border border-slate-200/80 dark:border-slate-800 animate-in fade-in zoom-in duration-200">
+            
+            <button onclick="closeModal()" class="absolute top-4 right-4 z-30 bg-black/40 hover:bg-black/70 text-white w-9 h-9 rounded-full flex items-center justify-center backdrop-blur transition">
+                <i class="fa-solid fa-xmark text-sm"></i>
+            </button>
+
+            <div class="overflow-y-auto flex-1">
+                <!-- Modal Photo Slider Gallery -->
+                <div class="relative h-64 sm:h-72 bg-slate-950 group">
+                    <img id="modalMainImg" src="" alt="음식점 사진" class="w-full h-full object-cover transition-all duration-300">
+                    <div class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-transparent to-transparent"></div>
+                    
+                    <button onclick="prevImage()" class="absolute left-3 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/70 text-white w-9 h-9 rounded-full flex items-center justify-center transition backdrop-blur">
+                        <i class="fa-solid fa-chevron-left text-xs"></i>
+                    </button>
+                    <button onclick="nextImage()" class="absolute right-3 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/70 text-white w-9 h-9 rounded-full flex items-center justify-center transition backdrop-blur">
+                        <i class="fa-solid fa-chevron-right text-xs"></i>
+                    </button>
+
+                    <button id="modalBookmarkBtn" onclick="toggleFavoriteFromModal()" class="absolute top-4 left-4 z-20 bg-black/40 hover:bg-black/70 text-amber-400 px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 backdrop-blur transition">
+                        <i class="fa-regular fa-star" id="modalBookmarkIcon"></i>
+                        <span>즐겨찾기</span>
+                    </button>
+
+                    <div id="modalThumbnails" class="absolute bottom-4 left-4 right-4 flex gap-2 overflow-x-auto pb-1 z-10 no-scrollbar"></div>
+                </div>
+
+                <!-- Detailed Info Body -->
+                <div class="p-6 space-y-6">
+                    <div>
+                        <div class="flex items-center justify-between gap-2 mb-2">
+                            <span id="modalCategory" class="px-3 py-1 rounded-lg text-xs font-bold bg-brand-50 dark:bg-brand-950/60 text-brand-600 dark:text-brand-300"></span>
+                            <span id="modalDistInfo" class="text-xs font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full"></span>
+                        </div>
+                        <h2 id="modalTitle" class="text-2xl font-extrabold text-slate-900 dark:text-white"></h2>
+                        
+                        <div class="flex flex-wrap items-center gap-3 text-xs sm:text-sm mt-2 font-medium">
+                            <span class="text-amber-500 font-extrabold flex items-center gap-1">
+                                <i class="fa-solid fa-star"></i> <span id="modalRating"></span>
+                            </span>
+                            <span id="modalReviews" class="text-slate-400"></span>
+                            <span class="text-slate-300 dark:text-slate-700">•</span>
+                            <span id="modalPhone" class="text-slate-600 dark:text-slate-300"></span>
+                        </div>
+
+                        <div id="modalTags" class="flex flex-wrap gap-1.5 mt-3"></div>
+                    </div>
+
+                    <!-- Business Info Grid Card -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                        <div class="flex items-start gap-3">
+                            <div class="w-7 h-7 rounded-lg bg-indigo-100 dark:bg-indigo-900/40 text-brand-600 dark:text-brand-400 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <i class="fa-solid fa-clock"></i>
+                            </div>
+                            <div>
+                                <p class="font-bold text-slate-800 dark:text-slate-200">영업시간</p>
+                                <p id="modalHours" class="text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed"></p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-3">
+                            <div class="w-7 h-7 rounded-lg bg-indigo-100 dark:bg-indigo-900/40 text-brand-600 dark:text-brand-400 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <i class="fa-solid fa-location-dot"></i>
+                            </div>
+                            <div>
+                                <p class="font-bold text-slate-800 dark:text-slate-200">도로명 주소</p>
+                                <p id="modalAddress" class="text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Menu Offerings -->
+                    <div>
+                        <h3 class="font-bold text-slate-900 dark:text-white text-sm mb-3 flex items-center gap-2">
+                            <i class="fa-solid fa-utensils text-brand-500"></i> 대표 메뉴 & 가격
+                        </h3>
+                        <div id="modalMenuList" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5"></div>
+                    </div>
+
+                    <!-- Walking Step-by-step Route Guidance -->
+                    <div class="pt-4 border-t border-slate-100 dark:border-slate-800">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
+                                <i class="fa-solid fa-route text-brand-500"></i> 캠퍼스 출발 도보 경로
+                            </h3>
+                            <button onclick="drawRouteAndCloseModal()" class="bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shadow-md shadow-brand-500/20">
+                                <i class="fa-solid fa-map-location-dot"></i> 지도에 경로 표시
+                            </button>
+                        </div>
+
+                        <div class="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 mb-4 space-y-2">
+                            <div class="flex items-center justify-between text-xs border-b border-slate-200/80 dark:border-slate-700/80 pb-2.5 mb-2">
+                                <span class="font-bold text-slate-700 dark:text-slate-200"><i class="fa-solid fa-person-walking text-brand-500 mr-1"></i> 소요시간</span>
+                                <span id="routeSummaryText" class="font-extrabold text-brand-600 dark:text-brand-400"></span>
+                            </div>
+                            <ol id="stepByStepList" class="text-xs text-slate-600 dark:text-slate-300 space-y-2 list-decimal list-inside font-medium">
+                                <!-- Steps injected by JS -->
+                            </ol>
+                        </div>
+
+                        <!-- External Maps Links -->
+                        <p class="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">외부 지도로 바로 길찾기 열기:</p>
+                        <div class="grid grid-cols-3 gap-2.5">
+                            <a id="naverMapLink" target="_blank" class="flex flex-col items-center justify-center p-3 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200/80 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 rounded-2xl transition text-center text-xs font-bold">
+                                <i class="fa-solid fa-map text-emerald-600 text-base mb-1"></i>
+                                네이버지도
+                            </a>
+                            <a id="kakaoMapLink" target="_blank" class="flex flex-col items-center justify-center p-3 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 border border-amber-200/80 dark:border-amber-800 text-amber-900 dark:text-amber-300 rounded-2xl transition text-center text-xs font-bold">
+                                <i class="fa-solid fa-location-arrow text-amber-600 text-base mb-1"></i>
+                                카카오맵
+                            </a>
+                            <a id="googleMapLink" target="_blank" class="flex flex-col items-center justify-center p-3 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200/80 dark:border-blue-800 text-blue-900 dark:text-blue-300 rounded-2xl transition text-center text-xs font-bold">
+                                <i class="fa-brands fa-google text-blue-600 text-base mb-1"></i>
+                                구글지도
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 25+ Korean Universities Dataset with Lat/Lng and Aliases
+        const UNIVERSITIES = [
+            { id: 'snu', name: '서울대학교 (관악캠퍼스)', region: '서울', aliases: ['snu', '서울대', '관악'], lat: 37.459882, lng: 126.951905 },
+            { id: 'yonsei', name: '연세대학교 (신촌캠퍼스)', region: '서울', aliases: ['yonsei', '연대', '신촌'], lat: 37.565784, lng: 126.938572 },
+            { id: 'korea', name: '고려대학교 (안암캠퍼스)', region: '서울', aliases: ['korea', '고대', '안암'], lat: 37.589400, lng: 127.032300 },
+            { id: 'sogang', name: '서강대학교', region: '서울', aliases: ['sogang', '서강대', '신수동'], lat: 37.550900, lng: 126.941000 },
+            { id: 'skku_seoul', name: '성균관대학교 (명륜캠퍼스)', region: '서울', aliases: ['skku', '성대', '혜화'], lat: 37.588200, lng: 126.993600 },
+            { id: 'hanyang', name: '한양대학교 (서울캠퍼스)', region: '서울', aliases: ['hanyang', '한양대', '왕십리'], lat: 37.557200, lng: 127.045300 },
+            { id: 'cau', name: '중앙대학교 (서울캠퍼스)', region: '서울', aliases: ['cau', '중대', '흑석'], lat: 37.505000, lng: 126.957000 },
+            { id: 'khu', name: '경희대학교 (서울캠퍼스)', region: '서울', aliases: ['khu', '경희대', '회기'], lat: 37.596200, lng: 127.052500 },
+            { id: 'hufs', name: '한국외국어대학교 (서울)', region: '서울', aliases: ['hufs', '외대', '이문동'], lat: 37.597300, lng: 127.057800 },
+            { id: 'uos', name: '서울시립대학교', region: '서울', aliases: ['uos', '시립대', '전농동'], lat: 37.583800, lng: 127.058800 },
+            { id: 'ewha', name: '이화여자대학교', region: '서울', aliases: ['ewha', '이대', '신촌'], lat: 37.561800, lng: 126.946800 },
+            { id: 'hongik', name: '홍익대학교 (서울캠퍼스)', region: '서울', aliases: ['hongik', '홍대', '상수'], lat: 37.550700, lng: 126.925500 },
+            { id: 'konkuk', name: '건국대학교 (서울캠퍼스)', region: '서울', aliases: ['konkuk', '건대', '화양동'], lat: 37.540800, lng: 127.079300 },
+            { id: 'dongguk', name: '동국대학교 (서울캠퍼스)', region: '서울', aliases: ['dongguk', '동대', '충무로'], lat: 37.558200, lng: 127.000200 },
+            { id: 'kookmin', name: '국민대학교', region: '서울', aliases: ['kookmin', '국민대', '정릉'], lat: 37.609600, lng: 126.997700 },
+            { id: 'soongsil', name: '숭실대학교', region: '서울', aliases: ['soongsil', '숭대', '상도'], lat: 37.496300, lng: 126.957200 },
+            { id: 'sejong', name: '세종대학교', region: '서울', aliases: ['sejong', '세종대', '군자'], lat: 37.550200, lng: 127.073100 },
+            { id: 'kwangwoon', name: '광운대학교', region: '서울', aliases: ['kwangwoon', '광운대', '월계'], lat: 37.619500, lng: 127.059700 },
+
+            // 경기 / 인천
+            { id: 'hanyang_erica', name: '한양대학교 ERICA', region: '경기/인천', aliases: ['erica', '에리카', '안산'], lat: 37.282500, lng: 126.835000 },
+            { id: 'inha', name: '인하대학교', region: '경기/인천', aliases: ['inha', '인하대', '용현'], lat: 37.450000, lng: 126.653500 },
+            { id: 'gachon', name: '가천대학교 (글로벌캠)', region: '경기/인천', aliases: ['gachon', '가천대', '성남'], lat: 37.456000, lng: 127.129800 },
+
+            // 충청 / 대전
+            { id: 'kaist', name: 'KAIST (대전 본원)', region: '충청/대전', aliases: ['kaist', '카이스트', '어은동'], lat: 36.372100, lng: 127.360400 },
+
+            // 경상 / 대구 / 부산
+            { id: 'postech', name: 'POSTECH (포항공과대)', region: '경상/부산', aliases: ['postech', '포스텍', '포항'], lat: 36.014200, lng: 129.325700 },
+            { id: 'pnu', name: '부산대학교 (부산캠퍼스)', region: '경상/부산', aliases: ['pnu', '부산대', '장전동'], lat: 35.233200, lng: 129.079400 },
+            { id: 'knu', name: '경북대학교 (대구캠퍼스)', region: '경상/부산', aliases: ['knu', '경북대', '산격동'], lat: 35.890600, lng: 128.612100 },
+
+            // 전라 / 강원 / 제주
+            { id: 'cnu', name: '전남대학교 (광주캠퍼스)', region: '전라/강원', aliases: ['cnu', '전남대', '용봉동'], lat: 35.176800, lng: 126.908000 }
+        ];
+
+        // Authentic Local Pre-populated Restaurants Database
+        const RESTAURANTS_DATABASE = {
+            'snu': [
+                {
+                    id: 'snu_1', name: '샤로수길 유키가미', category: '일식', rating: 4.8, reviewCount: 342,
+                    lat: 37.464500, lng: 126.953200, phone: '02-882-1234', address: '서울 관악구 관악로14길 28 1층',
+                    hours: '11:30 - 21:00 (브레이크타임 15:00-17:00)', soloDining: true, lateNight: false,
+                    tags: ['혼밥추천', '사케동', '샤로수길핫플'],
+                    images: ['https://images.unsplash.com/photo-1569718212165-3a8278d5f624?auto=format&fit=crop&w=800&q=80', 'https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&w=800&q=80'],
+                    menu: [{ name: '특상 사케동 (연어덮밥)', price: '16,000원', popular: true }, { name: '진한 돈카츠 라멘', price: '11,000원', popular: true }],
+                    steps: ['서울대 정문 출발', '관악로 따라 신림역 방향 300m 이동', '샤로수길 메인 골목 진입 후 150m 우측 위치']
+                },
+                {
+                    id: 'snu_2', name: '관악 산채비빔밥 전문', category: '한식', rating: 4.6, reviewCount: 198,
+                    lat: 37.457100, lng: 126.948500, phone: '02-873-9876', address: '서울 관악구 관악로 1 대학동 상가 102호',
+                    hours: '10:00 - 21:30 (매일)', soloDining: true, lateNight: false,
+                    tags: ['착한가격', '든든한한끼', '어르신선호'],
+                    images: ['https://images.unsplash.com/photo-1590301157890-4810ed352733?auto=format&fit=crop&w=800&q=80'],
+                    menu: [{ name: '전통 산채비빔밥', price: '9,500원', popular: true }, { name: '차돌 된장찌개 정식', price: '9,000원', popular: true }],
+                    steps: ['서울대 농생대 후문 출발', '대학동 고시촌 방향 250m 이동']
+                }
+            ],
+            'yonsei': [
+                {
+                    id: 'yonsei_1', name: '신촌 춘천닭갈비 본점', category: '한식', rating: 4.8, reviewCount: 520,
+                    lat: 37.559800, lng: 126.936200, phone: '02-333-1122', address: '서울 서대문구 연세로 7길 15',
+                    hours: '11:00 - 23:00', soloDining: false, lateNight: true,
+                    tags: ['신촌명물', '치즈폭탄', '단체석완비'],
+                    images: ['https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=800&q=80'],
+                    menu: [{ name: '치즈 폭탄 닭갈비 (1인)', price: '13,000원', popular: true }],
+                    steps: ['연세대 정문(백양로) 출발', '신촌 차없는거리 200m 직진', '창천교회 골목 우회전']
+                }
+            ],
+            'hongik': [
+                {
+                    id: 'hongik_1', name: '상수 수제버거 오아시스', category: '양식', rating: 4.9, reviewCount: 410,
+                    lat: 37.548800, lng: 126.923000, phone: '02-322-9988', address: '서울 마포구 와우산로 13길 7',
+                    hours: '12:00 - 22:00', soloDining: true, lateNight: false,
+                    tags: ['수제버거', '홍대소품샵인근', '육즙가득'],
+                    images: ['https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80'],
+                    menu: [{ name: '더블체다 클래식 버거', price: '11,800원', popular: true }],
+                    steps: ['홍익대 정문(홍문관) 출발', '상수역 방향 와우산로 도보 300m']
+                }
+            ]
+        };
+
+        // Fallback Mock Generator for Other Campus Regions
+        function getOrCreateRestaurantData(univId, univLat, univLng, univName) {
+            if (RESTAURANTS_DATABASE[univId]) return RESTAURANTS_DATABASE[univId];
+
+            const categories = ['한식', '일식', '중식', '양식', '카페/디저트', '술집'];
+            const prefixes = ['정성', '원조', '더', '캠퍼스', '바른', '골목'];
+            const suffixes = ['식당', '가', '공방', '집', '키친', '라운지', '베이커리'];
+            const tagsPool = ['혼밥추천', '가성비갓', '분위기좋은', '학생할인', '인기맛집', '데이트코스'];
+
+            const mockList = [];
+            for (let i = 1; i <= 6; i++) {
+                const dLat = (Math.random() - 0.5) * 0.007;
+                const dLng = (Math.random() - 0.5) * 0.007;
+                const cat = categories[i % categories.length];
+
+                mockList.push({
+                    id: `${univId}_mock_${i}`,
+                    name: `${prefixes[i % prefixes.length]} ${univName.split(' ')[0]} ${cat} ${suffixes[i % suffixes.length]}`,
+                    category: cat,
+                    rating: parseFloat((4.3 + Math.random() * 0.6).toFixed(1)),
+                    reviewCount: Math.floor(90 + Math.random() * 380),
+                    lat: univLat + dLat,
+                    lng: univLng + dLng,
+                    phone: '02-' + Math.floor(200+Math.random()*700) + '-' + Math.floor(1000+Math.random()*8000),
+                    address: `${univName.split(' ')[0]} 대학로 ${i * 14}번길 8`,
+                    hours: '10:30 - 21:30 (연중무휴)',
+                    soloDining: Math.random() > 0.35,
+                    lateNight: Math.random() > 0.5,
+                    tags: [tagsPool[i % tagsPool.length], tagsPool[(i+2)%tagsPool.length]],
+                    images: [
+                        'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80',
+                        'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80'
+                    ],
+                    menu: [
+                        { name: `${cat} 메인 추천 메뉴`, price: `${9000 + i*500}원`, popular: true },
+                        { name: `세트 알뜰 메뉴`, price: `${13000 + i*1000}원`, popular: false }
+                    ],
+                    steps: [
+                        `${univName} 메인 출구에서 직진`,
+                        `횡단보도 건넌 후 대학로 메인 상가 진입 (약 200m)`
+                    ]
+                });
+            }
+
+            RESTAURANTS_DATABASE[univId] = mockList;
+            return mockList;
+        }
+
+        const CATEGORIES = ['전체', '한식', '일식', '중식', '양식', '카페/디저트', '술집'];
+        const REGIONS = ['전체지역', '서울', '경기/인천', '충청/대전', '경상/부산', '전라/강원'];
+
+        // App States
+        let currentUniv = UNIVERSITIES[0];
+        let currentCustomCoords = null;
+        let currentRadius = 1.0;
+        let currentCategory = '전체';
+        let currentSelectedRegion = '전체지역';
+        let showFavoritesOnly = false;
+        let favorites = JSON.parse(localStorage.getItem('campus_foodlog_favs') || '[]');
+
+        let map = null;
+        let baseMarker = null;
+        let radiusCircle = null;
+        let restaurantMarkers = [];
+        let activeRouteLayer = null;
+        let selectedRestaurant = null;
+        let activeImgIdx = 0;
+
+        // Haversine Distance Formula
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = 
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+        }
+
+        window.onload = function() {
+            initCategoryBar();
+            initRegionTabs();
+            initMap();
+            renderUnivDropdownList('');
+            selectUniversity(UNIVERSITIES[0].id);
+
+            document.addEventListener('click', function(e) {
+                const container = document.getElementById('univDropdown');
+                const searchBox = document.getElementById('univSearchInput');
+                if (container && searchBox && !container.contains(e.target) && !searchBox.contains(e.target)) {
+                    container.classList.add('hidden');
+                }
+            });
+        };
+
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+        }
+
+        function initCategoryBar() {
+            const container = document.getElementById('categoryContainer');
+            container.innerHTML = CATEGORIES.map(cat => `
+                <button onclick="setCategory('${cat}')" id="cat-${cat}" class="px-3.5 py-1.5 rounded-xl font-bold whitespace-nowrap transition text-xs ${cat === '전체' ? 'bg-brand-600 text-white shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">
+                    ${cat}
+                </button>
+            `).join('');
+        }
+
+        function initRegionTabs() {
+            const container = document.getElementById('regionTabs');
+            container.innerHTML = REGIONS.map(r => `
+                <button onclick="setRegionFilter('${r}')" id="regTab-${r}" class="px-3 py-1 rounded-lg font-bold whitespace-nowrap transition text-[11px] ${r === '전체지역' ? 'bg-brand-600 text-white shadow-sm' : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600'}">
+                    ${r}
+                </button>
+            `).join('');
+        }
+
+        function setRegionFilter(region) {
+            currentSelectedRegion = region;
+            REGIONS.forEach(r => {
+                const btn = document.getElementById(`regTab-${r}`);
+                if (btn) {
+                    btn.className = r === region ? 
+                        'px-3 py-1 rounded-lg font-bold whitespace-nowrap transition text-[11px] bg-brand-600 text-white shadow-sm' : 
+                        'px-3 py-1 rounded-lg font-bold whitespace-nowrap transition text-[11px] bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600';
+                }
+            });
+            renderUnivDropdownList(document.getElementById('univSearchInput').value);
+        }
+
+        function showUnivDropdown() {
+            document.getElementById('univDropdown').classList.remove('hidden');
+        }
+
+        function onUnivSearchInput(val) {
+            showUnivDropdown();
+            document.getElementById('clearUnivBtn').classList.toggle('hidden', !val);
+            renderUnivDropdownList(val);
+        }
+
+        function clearUnivSearch() {
+            const input = document.getElementById('univSearchInput');
+            input.value = '';
+            document.getElementById('clearUnivBtn').classList.add('hidden');
+            renderUnivDropdownList('');
+            input.focus();
+        }
+
+        // University Search Match Logic
+        function renderUnivDropdownList(query) {
+            const container = document.getElementById('univListContainer');
+            const q = query.trim().toLowerCase();
+
+            let matches = UNIVERSITIES.filter(u => {
+                if (currentSelectedRegion !== '전체지역' && u.region !== currentSelectedRegion) return false;
+                if (!q) return true;
+                return u.name.toLowerCase().includes(q) || u.aliases.some(a => a.toLowerCase().includes(q));
+            });
+
+            if (matches.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-xs text-slate-400">
+                        <i class="fa-solid fa-graduation-cap text-2xl mb-2 text-slate-300"></i>
+                        <p>검색된 대학이 없습니다.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = matches.map(u => {
+                const restList = getOrCreateRestaurantData(u.id, u.lat, u.lng, u.name);
+                const isSelected = currentUniv.id === u.id && !currentCustomCoords;
+
+                return `
+                    <div onclick="selectUniversity('${u.id}')" class="p-3 rounded-2xl flex items-center justify-between cursor-pointer transition ${isSelected ? 'bg-brand-50 dark:bg-brand-950/60 border border-brand-200 dark:border-brand-800' : 'hover:bg-slate-100 dark:hover:bg-slate-800/60'}">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-xl ${isSelected ? 'bg-brand-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-brand-600'} flex items-center justify-center text-xs">
+                                <i class="fa-solid fa-building-columns"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs font-bold text-slate-900 dark:text-slate-100">${u.name}</p>
+                                <p class="text-[10px] text-slate-400 font-medium">${u.region} • 약어: ${u.aliases.join(', ')}</p>
+                            </div>
+                        </div>
+                        <span class="text-[10px] font-bold text-brand-600 dark:text-brand-300 bg-brand-100/60 dark:bg-brand-900/40 px-2.5 py-1 rounded-full">
+                            ${restList.length}개 맛집
+                        </span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function selectUniversity(univId) {
+            currentCustomCoords = null;
+            currentUniv = UNIVERSITIES.find(u => u.id === univId) || UNIVERSITIES[0];
+            
+            document.getElementById('univSearchInput').value = currentUniv.name;
+            document.getElementById('clearUnivBtn').classList.remove('hidden');
+            document.getElementById('univDropdown').classList.add('hidden');
+
+            loadCurrentViewData();
+        }
+
+        function initMap() {
+            map = L.map('map', { zoomControl: false }).setView([currentUniv.lat, currentUniv.lng], 15);
+            L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap'
+            }).addTo(map);
+        }
+
+        function getCurrentLocation() {
+            if (!navigator.geolocation) {
+                alert('사용자 브라우저에서 GPS 위치서비스를 지원하지 않습니다.');
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    currentCustomCoords = {
+                        lat: pos.coords.latitude,
+                        lng: pos.coords.longitude,
+                        name: '내 현재 위치 (GPS)'
+                    };
+                    
+                    document.getElementById('univSearchInput').value = '📍 내 현재 위치 (GPS)';
+                    document.getElementById('clearUnivBtn').classList.remove('hidden');
+                    document.getElementById('univDropdown').classList.add('hidden');
+
+                    loadCurrentViewData();
+                },
+                (err) => {
+                    alert('위치 정보를 불러올 수 없습니다: ' + err.message);
+                },
+                { enableHighAccuracy: true }
+            );
+        }
+
+        function setRadius(r) {
+            currentRadius = r;
+            [0.3, 0.5, 1.0].forEach(val => {
+                const btn = document.getElementById(`radius-${val}`);
+                if (val === r) {
+                    btn.className = 'px-3 py-1.5 rounded-xl font-bold bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-300 shadow-sm transition';
+                } else {
+                    btn.className = 'px-3 py-1.5 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-800 transition';
+                }
+            });
+            document.getElementById('mapRadiusBanner').innerHTML = `탐색 범위 <strong class="text-brand-600 dark:text-brand-400">${r * 1000}m</strong> 이내`;
+            loadCurrentViewData();
+        }
+
+        function setCategory(cat) {
+            currentCategory = cat;
+            CATEGORIES.forEach(c => {
+                const btn = document.getElementById(`cat-${c}`);
+                if (c === cat) {
+                    btn.className = 'px-3.5 py-1.5 rounded-xl font-bold whitespace-nowrap transition text-xs bg-brand-600 text-white shadow-sm';
+                } else {
+                    btn.className = 'px-3.5 py-1.5 rounded-xl font-bold whitespace-nowrap transition text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700';
+                }
+            });
+            applyFilters();
+        }
+
+        function toggleFavoriteFilter() {
+            showFavoritesOnly = !showFavoritesOnly;
+            const btn = document.getElementById('favFilterBtn');
+            if (showFavoritesOnly) {
+                btn.className = 'px-3 py-2 bg-amber-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition';
+            } else {
+                btn.className = 'px-3 py-2 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:text-amber-600 transition';
+            }
+            applyFilters();
+        }
+
+        function loadCurrentViewData() {
+            if (activeRouteLayer) {
+                map.removeLayer(activeRouteLayer);
+                activeRouteLayer = null;
+            }
+
+            const centerLat = currentCustomCoords ? currentCustomCoords.lat : currentUniv.lat;
+            const centerLng = currentCustomCoords ? currentCustomCoords.lng : currentUniv.lng;
+            const centerName = currentCustomCoords ? currentCustomCoords.name : currentUniv.name;
+
+            document.getElementById('currentUnivBannerTitle').textContent = centerName;
+
+            if (baseMarker) map.removeLayer(baseMarker);
+            
+            const centerIcon = L.divIcon({
+                className: 'custom-univ-marker',
+                html: currentCustomCoords ? '<i class="fa-solid fa-street-view"></i>' : '<i class="fa-solid fa-flag"></i>',
+                iconSize: [38, 38],
+                iconAnchor: [19, 19]
+            });
+
+            baseMarker = L.marker([centerLat, centerLng], { icon: centerIcon }).addTo(map);
+            baseMarker.bindTooltip(`<b>${centerName}</b>`, { permanent: false, direction: 'top' });
+
+            if (radiusCircle) map.removeLayer(radiusCircle);
+            radiusCircle = L.circle([centerLat, centerLng], {
+                color: '#6366f1',
+                fillColor: '#818cf8',
+                fillOpacity: 0.1,
+                weight: 2,
+                dashArray: '8, 8',
+                radius: currentRadius * 1000
+            }).addTo(map);
+
+            map.setView([centerLat, centerLng], 15);
+
+            applyFilters();
+        }
+
+        function applyFilters() {
+            const searchVal = document.getElementById('searchInput').value.trim().toLowerCase();
+            const sortVal = document.getElementById('sortSelect').value;
+            const chkSolo = document.getElementById('chkSolo').checked;
+            const chkLate = document.getElementById('chkLate').checked;
+
+            const centerLat = currentCustomCoords ? currentCustomCoords.lat : currentUniv.lat;
+            const centerLng = currentCustomCoords ? currentCustomCoords.lng : currentUniv.lng;
+
+            let dataset = [];
+            if (currentCustomCoords) {
+                UNIVERSITIES.forEach(u => {
+                    dataset.push(...getOrCreateRestaurantData(u.id, u.lat, u.lng, u.name));
+                });
+            } else {
+                dataset = getOrCreateRestaurantData(currentUniv.id, currentUniv.lat, currentUniv.lng, currentUniv.name);
+            }
+
+            let list = dataset.map(r => {
+                const dist = calculateDistance(centerLat, centerLng, r.lat, r.lng);
+                return { ...r, distanceKm: dist };
+            });
+
+            list = list.filter(r => r.distanceKm <= currentRadius);
+
+            if (currentCategory !== '전체') {
+                list = list.filter(r => r.category === currentCategory);
+            }
+
+            if (searchVal) {
+                list = list.filter(r => 
+                    r.name.toLowerCase().includes(searchVal) ||
+                    r.category.toLowerCase().includes(searchVal) ||
+                    r.tags.some(t => t.toLowerCase().includes(searchVal)) ||
+                    r.menu.some(m => m.name.toLowerCase().includes(searchVal))
+                );
+            }
+
+            if (showFavoritesOnly) {
+                list = list.filter(r => favorites.includes(r.id));
+            }
+
+            if (chkSolo) list = list.filter(r => r.soloDining);
+            if (chkLate) list = list.filter(r => r.lateNight);
+
+            if (sortVal === 'dist') list.sort((a, b) => a.distanceKm - b.distanceKm);
+            else if (sortVal === 'rating') list.sort((a, b) => b.rating - a.rating);
+            else if (sortVal === 'review') list.sort((a, b) => b.reviewCount - a.reviewCount);
+
+            document.getElementById('univBadgeCount').textContent = `${list.length}곳`;
+
+            renderRestaurantCards(list);
+            renderMapMarkers(list);
+        }
+
+        function renderRestaurantCards(list) {
+            const container = document.getElementById('restaurantList');
+
+            if (list.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 px-4">
+                        <div class="w-12 h-12 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                            <i class="fa-solid fa-utensils text-lg"></i>
+                        </div>
+                        <p class="text-slate-800 dark:text-slate-200 font-extrabold text-sm">해당 검색 결과가 없습니다</p>
+                        <p class="text-slate-400 text-xs mt-1 font-medium">반경 범위를 확장하거나 카테고리 필터를 변경해 보세요.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = list.map(r => {
+                const distM = Math.round(r.distanceKm * 1000);
+                const walkMin = Math.max(1, Math.round(distM / 80));
+                const isFav = favorites.includes(r.id);
+
+                return `
+                    <div onclick="openDetailModal('${r.id}')" class="bg-white dark:bg-slate-900 rounded-3xl p-3.5 border border-slate-200/80 dark:border-slate-800 hover:border-brand-300 dark:hover:border-brand-500 shadow-subtle hover:shadow-float transition-all duration-200 cursor-pointer flex gap-3.5 group relative">
+                        <div class="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden flex-shrink-0 bg-slate-100 dark:bg-slate-800">
+                            <img src="${r.images[0]}" alt="${r.name}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+                            <button onclick="event.stopPropagation(); toggleFavorite('${r.id}')" class="absolute top-2 left-2 w-7 h-7 rounded-full bg-black/40 hover:bg-black/70 text-amber-400 flex items-center justify-center backdrop-blur text-xs transition">
+                                <i class="${isFav ? 'fa-solid' : 'fa-regular'} fa-star"></i>
+                            </button>
+                        </div>
+
+                        <div class="flex-1 flex flex-col justify-between min-w-0 py-0.5">
+                            <div>
+                                <div class="flex items-center justify-between gap-1 mb-1">
+                                    <span class="text-[10px] font-extrabold text-brand-600 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/60 px-2.5 py-0.5 rounded-full">${r.category}</span>
+                                    <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                                        <i class="fa-solid fa-person-walking text-brand-500 mr-0.5"></i> ${distM}m · 도보 ${walkMin}분
+                                    </span>
+                                </div>
+                                <h3 class="font-bold text-slate-900 dark:text-white text-sm sm:text-base truncate group-hover:text-brand-600 dark:group-hover:text-brand-400 transition">${r.name}</h3>
+                            </div>
+
+                            <div class="flex items-center gap-2 text-xs font-semibold mt-1">
+                                <span class="text-amber-500 font-extrabold flex items-center gap-1">
+                                    <i class="fa-solid fa-star text-xs"></i> ${r.rating}
+                                </span>
+                                <span class="text-slate-400 dark:text-slate-500 font-medium">(${r.reviewCount})</span>
+                                <span class="text-slate-300 dark:text-slate-700">•</span>
+                                <span class="text-slate-500 dark:text-slate-400 font-medium">${r.soloDining ? '혼밥가능' : '단체가능'}</span>
+                            </div>
+
+                            <div class="flex flex-wrap gap-1 mt-2">
+                                ${r.tags.slice(0, 2).map(t => `<span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">#${t}</span>`).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderMapMarkers(list) {
+            restaurantMarkers.forEach(m => map.removeLayer(m));
+            restaurantMarkers = [];
+
+            list.forEach(r => {
+                const isFav = favorites.includes(r.id);
+                const icon = L.divIcon({
+                    className: `custom-rest-marker ${isFav ? 'fav' : ''}`,
+                    html: isFav ? '<i class="fa-solid fa-star text-amber-500 text-xs"></i>' : '<i class="fa-solid fa-utensils text-xs"></i>',
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15]
+                });
+
+                const marker = L.marker([r.lat, r.lng], { icon: icon }).addTo(map);
+                const distM = Math.round(r.distanceKm * 1000);
+                marker.bindTooltip(`<b>${r.name}</b> (${distM}m)`, { direction: 'top' });
+
+                marker.on('click', () => {
+                    openDetailModal(r.id);
+                });
+
+                restaurantMarkers.push(marker);
+            });
+        }
+
+        function toggleFavorite(id) {
+            if (favorites.includes(id)) {
+                favorites = favorites.filter(item => item !== id);
+            } else {
+                favorites.push(id);
+            }
+            localStorage.setItem('campus_foodlog_favs', JSON.stringify(favorites));
+            applyFilters();
+        }
+
+        function toggleFavoriteFromModal() {
+            if (!selectedRestaurant) return;
+            toggleFavorite(selectedRestaurant.id);
+            updateModalBookmarkBtn();
+        }
+
+        function updateModalBookmarkBtn() {
+            if (!selectedRestaurant) return;
+            const isFav = favorites.includes(selectedRestaurant.id);
+            const icon = document.getElementById('modalBookmarkIcon');
+            icon.className = isFav ? 'fa-solid fa-star text-amber-400' : 'fa-regular fa-star';
+        }
+
+        function openDetailModal(restaurantId) {
+            let found = null;
+            Object.values(RESTAURANTS_DATABASE).forEach(list => {
+                const item = list.find(r => r.id === restaurantId);
+                if (item) found = item;
+            });
+
+            if (!found) return;
+            selectedRestaurant = found;
+
+            const centerLat = currentCustomCoords ? currentCustomCoords.lat : currentUniv.lat;
+            const centerLng = currentCustomCoords ? currentCustomCoords.lng : currentUniv.lng;
+
+            const distKm = calculateDistance(centerLat, centerLng, selectedRestaurant.lat, selectedRestaurant.lng);
+            const distM = Math.round(distKm * 1000);
+            const walkMin = Math.max(1, Math.round(distM / 80));
+
+            document.getElementById('modalTitle').textContent = selectedRestaurant.name;
+            document.getElementById('modalCategory').textContent = selectedRestaurant.category;
+            document.getElementById('modalDistInfo').textContent = `도보 ${distM}m (약 ${walkMin}분)`;
+            document.getElementById('modalRating').textContent = selectedRestaurant.rating;
+            document.getElementById('modalReviews').textContent = `방문자 리뷰 ${selectedRestaurant.reviewCount}개`;
+            document.getElementById('modalPhone').textContent = selectedRestaurant.phone;
+            document.getElementById('modalHours').textContent = selectedRestaurant.hours;
+            document.getElementById('modalAddress').textContent = selectedRestaurant.address;
+
+            document.getElementById('modalTags').innerHTML = selectedRestaurant.tags.map(t => 
+                `<span class="text-xs bg-brand-50 dark:bg-brand-950/60 text-brand-600 dark:text-brand-300 px-2.5 py-1 rounded-lg font-bold">#${t}</span>`
+            ).join('');
+
+            document.getElementById('modalMenuList').innerHTML = selectedRestaurant.menu.map(m => `
+                <div class="flex justify-between items-center bg-slate-50 dark:bg-slate-800/40 p-3 rounded-2xl border border-slate-100 dark:border-slate-800">
+                    <span class="font-bold text-slate-800 dark:text-slate-200 text-xs flex items-center gap-1.5">
+                        ${m.name}
+                        ${m.popular ? '<span class="bg-amber-100 text-amber-800 text-[10px] font-extrabold px-1.5 py-0.3 rounded">인기</span>' : ''}
+                    </span>
+                    <span class="font-extrabold text-brand-600 dark:text-brand-400 text-xs">${m.price}</span>
+                </div>
+            `).join('');
+
+            document.getElementById('routeSummaryText').textContent = `도보 약 ${walkMin}분 (${distM}m)`;
+            document.getElementById('stepByStepList').innerHTML = selectedRestaurant.steps.map(s => `<li>${s}</li>`).join('');
+
+            const encName = encodeURIComponent(selectedRestaurant.name);
+            document.getElementById('naverMapLink').href = `https://map.naver.com/v5/search/${encName}`;
+            document.getElementById('kakaoMapLink').href = `https://map.kakao.com/link/search/${encName}`;
+            document.getElementById('googleMapLink').href = `https://www.google.com/maps/search/?api=1&query=${selectedRestaurant.lat},${selectedRestaurant.lng}`;
+
+            activeImgIdx = 0;
+            updateModalGallery();
+            updateModalBookmarkBtn();
+
+            document.getElementById('detailModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('detailModal').classList.add('hidden');
+        }
+
+        function updateModalGallery() {
+            const imgs = selectedRestaurant.images;
+            document.getElementById('modalMainImg').src = imgs[activeImgIdx];
+
+            document.getElementById('modalThumbnails').innerHTML = imgs.map((img, idx) => `
+                <img src="${img}" onclick="setGalleryIndex(${idx})" class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl object-cover cursor-pointer border-2 transition ${idx === activeImgIdx ? 'border-brand-500 scale-105' : 'border-white/40 opacity-60 hover:opacity-100'}">
+            `).join('');
+        }
+
+        function prevImage() {
+            if (!selectedRestaurant) return;
+            activeImgIdx = (activeImgIdx - 1 + selectedRestaurant.images.length) % selectedRestaurant.images.length;
+            updateModalGallery();
+        }
+
+        function nextImage() {
+            if (!selectedRestaurant) return;
+            activeImgIdx = (activeImgIdx + 1) % selectedRestaurant.images.length;
+            updateModalGallery();
+        }
+
+        function setGalleryIndex(idx) {
+            activeImgIdx = idx;
+            updateModalGallery();
+        }
+
+        function drawRouteAndCloseModal() {
+            closeModal();
+            if (!selectedRestaurant) return;
+
+            if (activeRouteLayer) map.removeLayer(activeRouteLayer);
+
+            const centerLat = currentCustomCoords ? currentCustomCoords.lat : currentUniv.lat;
+            const centerLng = currentCustomCoords ? currentCustomCoords.lng : currentUniv.lng;
+
+            const pointList = [
+                [centerLat, centerLng],
+                [selectedRestaurant.lat, selectedRestaurant.lng]
+            ];
+
+            activeRouteLayer = L.polyline(pointList, {
+                color: '#4f46e5',
+                weight: 5,
+                opacity: 0.9,
+                dashArray: '8, 10',
+                lineCap: 'round'
+            }).addTo(map);
+
+            map.fitBounds(activeRouteLayer.getBounds(), { padding: [60, 60] });
+        }
+
+        function recenterMap() {
+            const centerLat = currentCustomCoords ? currentCustomCoords.lat : currentUniv.lat;
+            const centerLng = currentCustomCoords ? currentCustomCoords.lng : currentUniv.lng;
+            map.setView([centerLat, centerLng], 15);
+        }
+    </script>
+</body>
+</html>
