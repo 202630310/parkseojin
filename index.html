@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>전국 중학교 근처 맛집 & 길찾기 서비스</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Tailwind CSS (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts (Noto Sans KR) -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #f8fafc; }
+        #map { height: 100%; width: 100%; z-index: 10; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .school-marker {
+            background: #4f46e5;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+            border: 3px solid white;
+        }
+        .restaurant-marker {
+            background: #ef4444;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 3px 8px rgba(239, 68, 68, 0.4);
+            border: 2px solid white;
+            transition: all 0.2s ease;
+        }
+        .restaurant-marker:hover {
+            transform: scale(1.2);
+            z-index: 999 !important;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex flex-col text-slate-800">
+
+    <!-- Header Navigation -->
+    <header class="h-16 bg-white border-b border-slate-200 px-4 md:px-6 flex items-center justify-between shrink-0 z-30 shadow-sm">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-xl shadow-md shadow-indigo-100">
+                <i class="fa-solid fa-utensils"></i>
+            </div>
+            <div>
+                <h1 class="font-extrabold text-slate-900 text-base md:text-lg tracking-tight">전국 중학교 1km 맛집맵</h1>
+                <p class="text-xs text-slate-500 hidden sm:block">전국 모든 중학교 반경 1km 맛집 및 정밀 길찾기</p>
+            </div>
+        </div>
+
+        <!-- School Search Bar -->
+        <div class="relative w-72 md:w-96">
+            <div class="relative flex items-center">
+                <i class="fa-solid fa-magnifying-glass absolute left-3.5 text-slate-400 text-sm"></i>
+                <input type="text" id="schoolSearchInput" 
+                    placeholder="중학교 이름 검색 (예: 언주중, 목동중)..." 
+                    class="w-full pl-10 pr-10 py-2 bg-slate-100 hover:bg-slate-200/70 focus:bg-white text-sm font-medium text-slate-800 rounded-xl border border-transparent focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition duration-150">
+                <button id="clearSearchBtn" class="hidden absolute right-3 text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+            <!-- Search Results Dropdown -->
+            <div id="searchResultsDropdown" class="hidden absolute left-0 right-0 top-full mt-2 bg-white rounded-xl shadow-2xl border border-slate-100 max-h-80 overflow-y-auto custom-scrollbar z-50">
+                <div id="dropdownContent" class="py-2"></div>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <button id="myLocationBtn" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-location-crosshairs text-indigo-600"></i>
+                <span class="hidden md:inline">내 위치 찾기</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        
+        <!-- Left Sidebar: School Info & Food List -->
+        <aside class="w-full md:w-96 lg:w-[420px] bg-white border-r border-slate-200 flex flex-col shrink-0 z-20 h-1/2 md:h-full shadow-lg">
+            
+            <!-- School Target Header Banner -->
+            <div class="p-4 bg-gradient-to-r from-indigo-900 to-indigo-700 text-white shrink-0 shadow-md">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <span class="px-2 py-0.5 bg-indigo-500/40 text-indigo-100 text-[11px] font-semibold rounded-md border border-indigo-300/30">
+                            <i class="fa-solid fa-school text-xs mr-1"></i>현재 선택된 학교
+                        </span>
+                        <h2 id="currentSchoolName" class="text-xl font-bold mt-1 tracking-tight">언주중학교</h2>
+                        <p id="currentSchoolAddr" class="text-xs text-indigo-200 mt-1 flex items-center gap-1">
+                            <i class="fa-solid fa-location-dot"></i> 서울특별시 강남구 언주로120길 41
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Radius Filter Buttons -->
+                <div class="mt-4 flex items-center gap-1.5 bg-indigo-950/40 p-1 rounded-xl border border-indigo-400/20">
+                    <button class="radius-btn flex-1 py-1.5 text-xs font-medium rounded-lg text-indigo-200 hover:text-white transition" data-radius="300">300m</button>
+                    <button class="radius-btn flex-1 py-1.5 text-xs font-medium rounded-lg text-indigo-200 hover:text-white transition" data-radius="500">500m</button>
+                    <button class="radius-btn flex-1 py-1.5 text-xs font-bold rounded-lg bg-indigo-500 text-white shadow-sm transition" data-radius="1000">1km 이내</button>
+                </div>
+            </div>
+
+            <!-- Food Category Pills -->
+            <div class="px-4 py-3 border-b border-slate-100 bg-slate-50 flex items-center gap-2 overflow-x-auto custom-scrollbar shrink-0">
+                <button class="category-btn px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-full shrink-0 shadow-sm" data-cat="ALL">전체</button>
+                <button class="category-btn px-3 py-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-medium rounded-full shrink-0" data-cat="분식">떡볶이/분식</button>
+                <button class="category-btn px-3 py-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-medium rounded-full shrink-0" data-cat="돈까스">돈까스/일식</button>
+                <button class="category-btn px-3 py-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-medium rounded-full shrink-0" data-cat="패스트푸드">버거/치킨</button>
+                <button class="category-btn px-3 py-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-medium rounded-full shrink-0" data-cat="한식">한식/밥집</button>
+                <button class="category-btn px-3 py-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-medium rounded-full shrink-0" data-cat="카페">디저트/카페</button>
+            </div>
+
+            <!-- Food List Stats -->
+            <div class="px-4 py-2 bg-white text-xs text-slate-500 border-b border-slate-100 flex items-center justify-between shrink-0">
+                <span>학교 반경 내 맛집 <strong id="restaurantCount" class="text-indigo-600 font-bold">0</strong>곳 탐색됨</span>
+                <span class="text-slate-400">거리순 정렬</span>
+            </div>
+
+            <!-- Restaurant Cards Scroll List -->
+            <div id="restaurantList" class="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                <!-- Cards dynamically injected here -->
+            </div>
+        </aside>
+
+        <!-- Right Side: Interactive Map -->
+        <main class="flex-1 relative h-1/2 md:h-full">
+            <div id="map"></div>
+
+            <!-- Map Floating Info Badge -->
+            <div class="absolute top-4 right-4 z-20 glass-panel px-4 py-2.5 rounded-2xl shadow-lg border border-white/60 flex items-center gap-3">
+                <div class="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+                    <span class="w-3 h-3 rounded-full bg-indigo-600 inline-block"></span> 학교 위치
+                </div>
+                <div class="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+                    <span class="w-3 h-3 rounded-full bg-red-500 inline-block"></span> 맛집
+                </div>
+                <div class="flex items-center gap-1.5 text-xs font-semibold text-indigo-600">
+                    <i class="fa-solid fa-person-walking"></i> 도보 1km 가이드
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Restaurant Detail Modal Sheet -->
+    <div id="detailModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] overflow-hidden shadow-2xl flex flex-col animate-in fade-in zoom-in duration-200">
+            <!-- Modal Header Image Slider/Banner -->
+            <div class="relative h-56 bg-slate-200 shrink-0 overflow-hidden">
+                <img id="modalImg" src="" alt="음식점 이미지" class="w-full h-full object-cover">
+                <button id="closeModalBtn" class="absolute top-4 right-4 w-9 h-9 bg-slate-900/60 hover:bg-slate-900 text-white rounded-full flex items-center justify-center backdrop-blur-md transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+                <div class="absolute bottom-3 left-4 right-4 flex items-center justify-between text-white">
+                    <span id="modalCategory" class="px-2.5 py-1 bg-indigo-600/90 text-xs font-bold rounded-lg backdrop-blur-md">분식</span>
+                    <span id="modalDistance" class="px-2.5 py-1 bg-black/60 text-xs font-medium rounded-lg backdrop-blur-md">학교에서 250m (도보 3분)</span>
+                </div>
+            </div>
+
+            <!-- Modal Content -->
+            <div class="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-5">
+                <div>
+                    <div class="flex items-center justify-between">
+                        <h3 id="modalTitle" class="text-2xl font-bold text-slate-900">상호명</h3>
+                        <div class="flex items-center gap-1 text-amber-500 font-bold">
+                            <i class="fa-solid fa-star"></i>
+                            <span id="modalRating" class="text-slate-800">4.8</span>
+                        </div>
+                    </div>
+                    <p id="modalAddress" class="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                        <i class="fa-solid fa-location-dot"></i> 서울 강남구 언주로
+                    </p>
+                </div>
+
+                <!-- Info Grid -->
+                <div class="grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-2xl text-xs text-slate-600">
+                    <div>
+                        <span class="text-slate-400 block mb-0.5">영업시간</span>
+                        <strong id="modalHours" class="text-slate-800">11:00 ~ 21:00</strong>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block mb-0.5">주요 가격대</span>
+                        <strong id="modalPrice" class="text-slate-800">5,000원 ~ 12,000원</strong>
+                    </div>
+                </div>
+
+                <!-- Popular Menu -->
+                <div>
+                    <h4 class="text-sm font-bold text-slate-900 mb-2 flex items-center gap-1.5">
+                        <i class="fa-solid fa-fire text-amber-500"></i> 대표 메뉴
+                    </h4>
+                    <ul id="modalMenuList" class="space-y-2 text-xs">
+                        <!-- Menu items injected here -->
+                    </ul>
+                </div>
+
+                <!-- Route Walking Guide -->
+                <div class="p-4 bg-indigo-50/70 border border-indigo-100 rounded-2xl">
+                    <h4 class="text-xs font-bold text-indigo-900 flex items-center gap-1.5 mb-2">
+                        <i class="fa-solid fa-route text-indigo-600"></i> 학교 정문 출발 도보 길안내
+                    </h4>
+                    <p id="modalRouteText" class="text-xs text-slate-600 leading-relaxed">학교 정문에서 나와 오른쪽 골목으로 150m 이동 후 횡단보도를 건너면 왼쪽에 위치하고 있습니다.</p>
+                </div>
+
+                <!-- External Map Route Links -->
+                <div class="grid grid-cols-3 gap-2 pt-2">
+                    <a id="naverMapLink" href="#" target="_blank" class="py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-xs rounded-xl text-center transition">
+                        네이버 길찾기
+                    </a>
+                    <a id="kakaoMapLink" href="#" target="_blank" class="py-2.5 bg-yellow-400 hover:bg-yellow-500 text-slate-900 font-semibold text-xs rounded-xl text-center transition">
+                        카카오 길찾기
+                    </a>
+                    <a id="googleMapLink" href="#" target="_blank" class="py-2.5 bg-sky-500 hover:bg-sky-600 text-white font-semibold text-xs rounded-xl text-center transition">
+                        구글 지도
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // --- 1. MIDDLE SCHOOL DATABASE ---
+        const SCHOOLS_DB = [
+            { id: 'eonju', name: '언주중학교', region: '강남구', lat: 37.5138, lng: 127.0392, address: '서울특별시 강남구 언주로120길 41' },
+            { id: 'eonbuk', name: '언북중학교', region: '강남구', lat: 37.5218, lng: 127.0360, address: '서울특별시 강남구 도산대로38길 27' },
+            { id: 'apgujeong', name: '압구정중학교', region: '강남구', lat: 37.5312, lng: 127.0298, address: '서울특별시 강남구 압구정로39길 20' },
+            { id: 'sinsa', name: '신사중학교', region: '강남구', lat: 37.5204, lng: 127.0210, address: '서울특별시 강남구 압구정로 132' },
+            { id: 'daecheong', name: '대청중학교', region: '강남구', lat: 37.4935, lng: 127.0752, address: '서울특별시 강남구 개포로109길 21' },
+            { id: 'whimoon', name: '휘문중학교', region: '강남구', lat: 37.5052, lng: 127.0618, address: '서울특별시 강남구 역삼로 541' },
+            { id: 'yeoksam', name: '역삼중학교', region: '강남구', lat: 37.4975, lng: 127.0456, address: '서울특별시 강남구 도곡로43길 23' },
+            { id: 'daewon', name: '대원국제중학교', region: '광진구', lat: 37.5501, lng: 127.0864, address: '서울특별시 광진구 용마산로22길 26' },
+            { id: 'mokdong', name: '목동중학교', region: '양천구', lat: 37.5268, lng: 126.8724, address: '서울특별시 양천구 목동동로 125' },
+            { id: 'shinmok', name: '신목중학교', region: '양천구', lat: 37.5380, lng: 126.8778, address: '서울특별시 양천구 안양천로 1139' },
+            { id: 'jamsil', name: '잠실중학교', region: '송파구', lat: 37.5201, lng: 127.1022, address: '서울특별시 송파구 올림픽로 35길 11' },
+            { id: 'banpo', name: '반포중학교', region: '서초구', lat: 37.5020, lng: 126.9961, address: '서울특별시 서초구 신반포로 71' },
+            { id: 'seowoon', name: '서운중학교', region: '서초구', lat: 37.4932, lng: 127.0275, address: '서울특별시 서초구 서운로 62' },
+            { id: 'sangam', name: '상암중학교', region: '마포구', lat: 37.5768, lng: 126.8921, address: '서울특별시 마포구 월드컵북로 486' },
+            { id: 'bundang_naejung', name: '내정중학교', region: '분당구', lat: 37.3712, lng: 127.1198, address: '경기도 성남시 분당구 내정로 145' }
+        ];
+
+        // --- 2. SAMPLE RESTAURANT DATA PER SCHOOL ---
+        const RESTAURANTS_DATA = {
+            'eonju': [
+                { id: 1, name: '언주 떡볶이 마실', category: '분식', lat: 37.5142, lng: 127.0398, rating: 4.8, price: '4,000~8,000원', hours: '11:00 ~ 21:00', img: 'https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?w=600&auto=format&fit=crop', desc: '중학생 최고 인기 국물떡볶이와 바삭 모둠튀김 전문점.', menus: [{n: '국물떡볶이(1인분)', p: '4,000원'}, {n: '모둠튀김 세트', p: '5,500원'}, {n: '찰순대', p: '4,500원'}] },
+                { id: 2, name: '학동 돈까스 클럽', category: '돈까스', lat: 37.5129, lng: 127.0385, rating: 4.7, price: '8,500~12,000원', hours: '11:30 ~ 20:30', img: 'https://images.unsplash.com/photo-1552611052-33e04de081de?w=600&auto=format&fit=crop', desc: '겉바속촉 수제 등심 돈까스와 우동 세트 가성비 맛집.', menus: [{n: '수제 등심돈까스', p: '8,500원'}, {n: '치즈 폭탄 돈까스', p: '10,000원'}] },
+                { id: 3, name: '스쿨 버거 수제버거', category: '패스트푸드', lat: 37.5150, lng: 127.0410, rating: 4.9, price: '6,500~9,500원', hours: '10:30 ~ 22:00', img: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&auto=format&fit=crop', desc: '100% 소고기 패티와 불맛 소스로 만든 하교길 인하우스 수제버거.', menus: [{n: '클래식 치즈버거 세트', p: '7,900원'}, {n: '크리스피 치킨버거', p: '6,800원'}] },
+                { id: 4, name: '언주역 소머리국밥&제육', category: '한식', lat: 37.5118, lng: 127.0372, rating: 4.6, price: '8,000~10,000원', hours: '10:00 ~ 21:00', img: 'https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=600&auto=format&fit=crop', desc: '학생 할인 제육볶음정식과 든든한 가성비 한식당.', menus: [{n: '학생 제육볶음정식', p: '8,000원'}, {n: '뚝배기 불고기', p: '9,000원'}] },
+                { id: 5, name: '베리베리 와플&슬러시', category: '카페', lat: 37.5145, lng: 127.0388, rating: 4.9, price: '2,500~5,000원', hours: '12:00 ~ 20:00', img: 'https://images.unsplash.com/photo-1562376552-0d160a2f238d?w=600&auto=format&fit=crop', desc: '바삭하고 달콤한 생크림 와플과 과일 슬러시 디저트 카페.', menus: [{n: '애플 생크림 와플', p: '3,000원'}, {n: '망고 슬러시', p: '2,500원'}] }
+            ]
+        };
+
+        // Default sample fallback generator for other schools
+        function getRestaurantDataForSchool(school) {
+            if (RESTAURANTS_DATA[school.id]) return RESTAURANTS_DATA[school.id];
+            
+            // Generate realistic nearby restaurants dynamically
+            const templates = [
+                { name: `${school.name.replace('중학교','')} 학교앞 떡볶이`, cat: '분식', dLat: 0.0018, dLng: 0.0012, r: 4.8, img: 'https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?w=600&auto=format&fit=crop' },
+                { name: `${school.name.replace('중학교','')} 수제 왕돈까스`, cat: '돈까스', dLat: -0.0022, dLng: 0.0025, r: 4.7, img: 'https://images.unsplash.com/photo-1552611052-33e04de081de?w=600&auto=format&fit=crop' },
+                { name: `맘스버거 ${school.name.replace('중학교','')}점`, cat: '패스트푸드', dLat: 0.0031, dLng: -0.0015, r: 4.6, img: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&auto=format&fit=crop' },
+                { name: `${school.name.replace('중학교','')} 소문난 제육&김치찌개`, cat: '한식', dLat: -0.0015, dLng: -0.0030, r: 4.5, img: 'https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=600&auto=format&fit=crop' },
+                { name: `빙수야 와플 ${school.name.replace('중학교','')}점`, cat: '카페', dLat: 0.0012, dLng: -0.0020, r: 4.9, img: 'https://images.unsplash.com/photo-1562376552-0d160a2f238d?w=600&auto=format&fit=crop' }
+            ];
+
+            return templates.map((t, idx) => ({
+                id: idx + 100,
+                name: t.name,
+                category: t.cat,
+                lat: school.lat + t.dLat,
+                lng: school.lng + t.dLng,
+                rating: t.r,
+                price: '4,000~10,000원',
+                hours: '11:00 ~ 21:00',
+                img: t.img,
+                desc: `${school.name} 학생들이 가장 많이 찾는 가성비 으뜸 추천 맛집.`,
+                menus: [{n: '대표 메인 메뉴 A', p: '6,000원'}, {n: '인기 세트 메뉴 B', p: '8,500원'}]
+            }));
+        }
+
+        // --- 3. STATE & APP INIT ---
+        let map;
+        let currentSchool = SCHOOLS_DB[0]; // Default: 언주중학교
+        let currentRadius = 1000; // 1km
+        let currentCategory = 'ALL';
+        let schoolMarker = null;
+        let radiusCircle = null;
+        let restaurantMarkers = [];
+        let activeRoutePolyline = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initMap();
+            selectSchool(currentSchool);
+            setupEventListeners();
+        });
+
+        // --- 4. MAP INITIALIZATION ---
+        function initMap() {
+            map = L.map('map', {
+                zoomControl: false
+            }).setView([currentSchool.lat, currentSchool.lng], 15);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap'
+            }).addTo(map);
+
+            L.control.zoom({ position: 'bottomright' }).addTo(map);
+        }
+
+        // --- 5. HAVERSINE DISTANCE CALCULATOR (Meters) ---
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // Earth radius in meters
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+            return Math.round(R * c);
+        }
+
+        // --- 6. SELECT SCHOOL & RENDER DATA ---
+        function selectSchool(school) {
+            currentSchool = school;
+
+            // Update UI Labels
+            document.getElementById('currentSchoolName').innerText = school.name;
+            document.getElementById('currentSchoolAddr').innerHTML = `<i class="fa-solid fa-location-dot"></i> ${school.address}`;
+
+            // Pan Map
+            map.flyTo([school.lat, school.lng], 15, { duration: 1.2 });
+
+            // Clear Markers
+            if (schoolMarker) map.removeLayer(schoolMarker);
+            if (radiusCircle) map.removeLayer(radiusCircle);
+
+            // Add School Flag Marker
+            const schoolIcon = L.divIcon({
+                className: 'school-marker',
+                html: '<i class="fa-solid fa-school text-sm"></i>',
+                iconSize: [36, 36]
+            });
+            schoolMarker = L.marker([school.lat, school.lng], { icon: schoolIcon }).addTo(map)
+                .bindPopup(`<div class="font-bold text-sm text-indigo-900">${school.name}</div><div class="text-xs text-slate-500">${school.address}</div>`);
+
+            // Draw Radius Circle (1km)
+            updateRadiusCircle();
+
+            // Load and Render Restaurants
+            renderRestaurants();
+        }
+
+        function updateRadiusCircle() {
+            if (radiusCircle) map.removeLayer(radiusCircle);
+            radiusCircle = L.circle([currentSchool.lat, currentSchool.lng], {
+                color: '#4f46e5',
+                fillColor: '#6366f1',
+                fillOpacity: 0.08,
+                weight: 2,
+                dashArray: '6, 6',
+                radius: currentRadius
+            }).addTo(map);
+        }
+
+        // --- 7. RENDER RESTAURANT LIST & MARKERS ---
+        function renderRestaurants() {
+            // Clear existing markers
+            restaurantMarkers.forEach(m => map.removeLayer(m));
+            restaurantMarkers = [];
+            if (activeRoutePolyline) map.removeLayer(activeRoutePolyline);
+
+            const allRestaurants = getRestaurantDataForSchool(currentSchool);
+            
+            // Calculate distance & filter by radius and category
+            const filtered = allRestaurants.map(r => {
+                const dist = calculateDistance(currentSchool.lat, currentSchool.lng, r.lat, r.lng);
+                return { ...r, distance: dist };
+            }).filter(r => {
+                const inRadius = r.distance <= currentRadius;
+                const inCat = (currentCategory === 'ALL') || (r.category === currentCategory);
+                return inRadius && inCat;
+            }).sort((a, b) => a.distance - b.distance);
+
+            // Update Count
+            document.getElementById('restaurantCount').innerText = filtered.length;
+
+            const listContainer = document.getElementById('restaurantList');
+            listContainer.innerHTML = '';
+
+            if (filtered.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="py-12 text-center text-slate-400">
+                        <i class="fa-solid fa-utensils text-3xl mb-2 opacity-50"></i>
+                        <p class="text-xs">설정한 반경 및 카테고리에 해당하는 맛집이 없습니다.</p>
+                    </div>`;
+                return;
+            }
+
+            filtered.forEach(r =>
